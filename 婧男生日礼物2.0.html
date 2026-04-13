@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>送给婧男的专属极光</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Serif+KR:wght@300;400&family=Ma+Shan+Zheng&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #000; user-select: none; }
+
+        .cinematic-vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.8);
+            z-index: 5; pointer-events: none;
+        }
+
+        .sky-layer {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; transition: opacity 2.5s ease-in-out; z-index: 0;
+        }
+        #sky-dusk { background: linear-gradient(to bottom, #ff7e5f 0%, #feb47b 40%, #ffe3ba 100%); opacity: 1; }
+        #sky-blue { background: linear-gradient(to bottom, #102B3F 0%, #2b5876 50%, #4e4376 100%); opacity: 0; }
+        #sky-night { background: linear-gradient(to bottom, #050810 0%, #0a111a 50%, #111a3a 100%); opacity: 0; }
+
+        /* --- 纯代码 GPU Shader 渲染层 --- */
+        #shader-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; z-index: 1; transition: opacity 3s ease-in-out; pointer-events: none;
+        }
+        
+        .mountain-silhouette {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 25vh;
+            z-index: 4; pointer-events: none;
+        }
+
+        .stars-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; opacity: 0; transition: opacity 2s ease-in-out 1s; pointer-events: none;
+        }
+        .star {
+            position: absolute; background-color: #fff; border-radius: 50%;
+            animation: twinkle var(--duration) ease-in-out infinite alternate;
+        }
+        @keyframes twinkle {
+            0% { opacity: 0.1; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 8px #fff; }
+        }
+
+        #meteor-shower { z-index: 2; position: absolute; width: 100%; height: 100%; pointer-events: none;}
+        .shooting-star {
+            position: absolute; width: 150px; height: 2px;
+            background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1) 80%, #fff 100%);
+            transform: rotate(-25deg); opacity: 0; border-radius: 50%; filter: drop-shadow(0 0 8px #fff);
+        }
+        .shooting-star.active { animation: shoot var(--speed) ease-out forwards var(--delay); }
+        @keyframes shoot {
+            0% { transform: rotate(-25deg) translateX(0); opacity: 1; }
+            100% { transform: rotate(-25deg) translateX(150vw); opacity: 0; }
+        }
+
+        .interactive-area {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 12vh 0 8vh 0;
+        }
+
+        .center-clovers { display: flex; gap: 4vw; margin-top: 10vh; transition: opacity 1s ease; }
+        .clover-btn {
+            font-size: 65px; cursor: pointer; filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+            transition: transform 0.3s, filter 0.3s, opacity 0.5s; animation: float 3s ease-in-out infinite alternate; -webkit-tap-highlight-color: transparent;
+        }
+        .clover-btn:nth-child(2) { animation-delay: 0.6s; }
+        .clover-btn:nth-child(3) { animation-delay: 1.2s; }
+        .clover-btn:hover, .clover-btn:active { transform: scale(1.2); filter: drop-shadow(0 0 30px rgba(74, 222, 128, 1)); }
+        .clover-btn.collected { opacity: 0; transform: scale(0) translateY(-100px); pointer-events: none; }
+        @keyframes float { 0% { transform: translateY(0); } 100% { transform: translateY(-20px); } }
+
+        .bottom-ui { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .bottom-clovers { 
+            display: flex; gap: 10px; padding: 15px 25px; 
+            background: rgba(255,255,255,0.05); border-radius: 40px; 
+            backdrop-filter: blur(10px); 
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .b-clover { font-size: 35px; filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.5)); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .b-clover.owned { opacity: 0.9; }
+        .b-clover.empty { opacity: 0.2; filter: grayscale(100%); transform: scale(0.8); }
+        .b-clover.pop { opacity: 1; filter: grayscale(0%) drop-shadow(0 0 20px rgba(74, 222, 128, 1)); transform: scale(1.1); }
+
+        .hint-text { color: rgba(255, 255, 255, 0.9); font-size: 16px; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); transition: opacity 1s; font-weight: 300; }
+
+        .climax-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -45%);
+            z-index: 20; text-align: center; opacity: 0; pointer-events: none;
+            transition: opacity 2s ease-in, transform 2s ease-out; width: 100%; padding: 0 20px;
+        }
+        .climax-container.show { opacity: 1; transform: translate(-50%, -50%); pointer-events: auto; }
+
+        .cake-wrapper { cursor: pointer; display: inline-block; animation: gentleFloat 4s ease-in-out infinite alternate; position: relative; -webkit-tap-highlight-color: transparent; }
+        .cake-svg { width: 180px; height: auto; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.6)); transition: transform 0.3s; }
+        .cake-wrapper:hover .cake-svg { transform: scale(1.05); }
+        
+        .flame-anim { transform-origin: 150px 36px; animation: gentleFlicker 1.5s ease-in-out infinite alternate; }
+        @keyframes gentleFlicker { 
+            0% { transform: scale(0.95) rotate(-2deg); opacity: 0.9; } 
+            100% { transform: scale(1.05) rotate(2deg); opacity: 1; } 
+        }
+        
+        .smoke-effect { animation: smokeRise 2.5s ease-out forwards; }
+        @keyframes smokeRise { 
+            0% { opacity: 0.6; transform: translateY(0) scale(1); filter: blur(3px); } 
+            100% { opacity: 0; transform: translateY(-50px) scale(4); filter: blur(10px); } 
+        }
+        
+        .wish-hint {
+            color: #FDE047; font-size: 16px; letter-spacing: 2px; margin-top: 15px; font-weight: 300;
+            text-shadow: 0 0 10px rgba(253, 224, 71, 0.6); animation: textPulse 2s infinite alternate;
+            transition: opacity 0.5s;
+        }
+        @keyframes textPulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        .final-blessing { opacity: 0; transition: opacity 2s ease 0.5s; margin-top: 30px; display: none; }
+        .final-blessing.show { display: block; opacity: 1; }
+        
+        .en-title {
+            font-family: 'Dancing Script', cursive; font-size: 55px; color: #fff;
+            text-shadow: 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(167, 139, 250, 0.8);
+            margin-bottom: 5px;
+        }
+        .kr-subtitle {
+            font-family: 'Noto Serif KR', serif; font-size: 22px; color: #FDF2F8; font-weight: 300;
+            letter-spacing: 1px; text-shadow: 0 2px 5px rgba(0,0,0,0.8); margin-bottom: 12px;
+        }
+        .cn-translation {
+            font-size: 15px; color: #CBD5E1; font-weight: 300; letter-spacing: 3px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(255,255,255,0.2);
+            padding-top: 15px; display: inline-block;
+        }
+
+        audio { display: none; }
+
+        @media (max-width: 600px) {
+            .clover-btn { font-size: 55px; }
+            .cake-svg { width: 120px; height: 140px; }
+            .en-title { font-size: 40px; }
+            .kr-subtitle { font-size: 16px; }
+            .cn-translation { font-size: 12px; }
+        }
+    </style>
+    <!-- 引入强大的 3D 渲染引擎 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <audio id="bgm" loop preload="auto"></audio>
+
+    <div class="cinematic-vignette"></div>
+
+    <div id="sky-dusk" class="sky-layer"></div>
+    <div id="sky-blue" class="sky-layer"></div>
+    <div id="sky-night" class="sky-layer"></div>
+    
+    <!-- 纯代码 GPU Shader 渲染容器 -->
+    <div id="shader-container"></div>
+
+    <svg class="mountain-silhouette" viewBox="0 0 1440 320" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#02040a" d="M0,320 L0,180 L150,220 L300,140 L450,200 L600,100 L800,220 L1000,120 L1200,240 L1440,160 L1440,320 Z"></path>
+        <path fill="#050812" d="M0,320 L0,220 L200,280 L400,200 L650,260 L900,180 L1150,280 L1440,200 L1440,320 Z" opacity="0.6"></path>
+    </svg>
+
+    <div class="stars-container" id="stars-container"></div>
+
+    <div id="meteor-shower">
+        <div class="shooting-star" style="top: 10%; left: 0%; --speed: 2.5s; --delay: 1.2s;"></div>
+        <div class="shooting-star" style="top: 25%; left: 20%; --speed: 2s; --delay: 1.8s;"></div>
+        <div class="shooting-star" style="top: 5%; left: 40%; --speed: 3s; --delay: 2.5s;"></div>
+        <div class="shooting-star" style="top: 30%; left: -10%; --speed: 2.2s; --delay: 3s;"></div>
+    </div>
+
+    <div class="interactive-area" id="interactive-area">
+        <div class="center-clovers" id="center-clovers">
+            <div class="clover-btn" onclick="collectClover(this)">🍀</div>
+            <div class="clover-btn" onclick="collectClover(this)">🍀</div>
+            <div class="clover-btn" onclick="collectClover(this)">🍀</div>
+        </div>
+        <div class="bottom-ui">
+            <div class="bottom-clovers" id="bottom-clovers">
+                <div class="b-clover owned">🍀</div>
+                <div class="b-clover owned">🍀</div>
+                <div class="b-clover owned">🍀</div>
+                <div class="b-clover owned">🍀</div>
+                <div class="b-clover empty" id="slot-1">🍀</div>
+                <div class="b-clover empty" id="slot-2">🍀</div>
+                <div class="b-clover empty" id="slot-3">🍀</div>
+            </div>
+            <p class="hint-text" id="hint-text">触碰天空中的幸运，带给婧男...</p>
+        </div>
+    </div>
+
+    <div class="climax-container" id="climax-container">
+        <div class="cake-wrapper" onclick="makeWish()">
+            <svg class="cake-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="5" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <filter id="smokeBlur">
+                        <feGaussianBlur stdDeviation="3" />
+                    </filter>
+                    <filter id="creamShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#D6C5B3" flood-opacity="0.5"/>
+                    </filter>
+                    <linearGradient id="cakeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#F5E6D3"/>
+                        <stop offset="15%" stop-color="#FFFCF8"/>
+                        <stop offset="85%" stop-color="#FFFCF8"/>
+                        <stop offset="100%" stop-color="#E8D5C4"/>
+                    </linearGradient>
+                </defs>
+                <ellipse cx="150" cy="245" rx="110" ry="25" fill="#1E293B" opacity="0.5" filter="blur(5px)"/>
+                <ellipse cx="150" cy="235" rx="120" ry="30" fill="#F8FAFC" />
+                <ellipse cx="150" cy="230" rx="110" ry="25" fill="#FFFFFF" />
+                <path d="M 30 235 C 30 255 270 255 270 235" stroke="#E2E8F0" stroke-width="4" fill="none"/>
+                <ellipse cx="150" cy="215" rx="85" ry="25" fill="#E2E8F0"/>
+                <path d="M 65 130 L 65 215 C 65 235 235 235 235 215 L 235 130 Z" fill="url(#cakeGrad)"/>
+                <ellipse cx="150" cy="130" rx="85" ry="25" fill="#FFFCF8"/>
+                <path d="M 65 215 C 65 235 235 235 235 215" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round" stroke-dasharray="0 23" fill="none" filter="url(#creamShadow)"/>
+                <path d="M 65 130 C 65 150 235 150 235 130" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 22" fill="none" filter="url(#creamShadow)"/>
+                <path d="M 65 130 C 65 110 235 110 235 130" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 22" fill="none" filter="url(#creamShadow)"/>
+                <path d="M 65 175 C 65 195 235 195 235 175" stroke="#FDA4AF" stroke-width="5" fill="none" filter="url(#creamShadow)"/>
+                <path d="M 150 188 C 135 175 125 195 150 195 C 175 195 165 175 150 188 Z" fill="#FDA4AF" filter="url(#creamShadow)"/>
+                <path d="M 148 190 L 135 210 M 152 190 L 165 210" stroke="#FDA4AF" stroke-width="4" stroke-linecap="round" filter="url(#creamShadow)"/>
+                <g transform="translate(150, 130) scale(1, 0.45)">
+                    <text x="0" y="0" text-anchor="middle" font-family="'Dancing Script', cursive" font-size="36" fill="#BE123C">Happy</text>
+                    <text x="0" y="35" text-anchor="middle" font-family="'Dancing Script', cursive" font-size="30" fill="#BE123C">Birthday</text>
+                </g>
+                <ellipse cx="150" cy="120" rx="8" ry="3" fill="rgba(0,0,0,0.08)"/>
+                <rect x="146" y="45" width="8" height="75" rx="4" fill="#FEF2F2"/>
+                <path d="M 146 55 L 154 60 M 146 70 L 154 75 M 146 85 L 154 90 M 146 100 L 154 105" stroke="#F43F5E" stroke-width="2.5"/>
+                <path d="M 150 45 Q 152 40 150 36" stroke="#475569" stroke-width="2" fill="none" stroke-linecap="round"/>
+                
+                <g id="flameGroup" class="flame-anim">
+                    <circle cx="150" cy="25" r="20" fill="#FDE047" opacity="0.6" filter="url(#glow)"/>
+                    <path d="M 150 12 C 150 12 142 28 150 36 C 158 28 150 12 150 12 Z" fill="#F59E0B"/>
+                    <path d="M 150 20 C 150 20 146 29 150 33 C 154 29 150 20 150 20 Z" fill="#FFF"/>
+                </g>
+                <circle id="smokeAnim" cx="150" cy="30" r="8" fill="#E2E8F0" opacity="0" filter="url(#smokeBlur)"/>
+            </svg>
+            <div class="wish-hint" id="wish-hint">许个愿望吧... 然后点我吹灭蜡烛</div>
+        </div>
+
+        <div class="final-blessing" id="final-blessing">
+            <div class="en-title">Happy Birthday, Jingnan</div>
+            <div class="kr-subtitle">모든 행운을 너에게, 모든 오로라를 너와 함께.</div>
+            <div class="cn-translation">为你凑齐七朵小幸运，陪你看尽所有的极光</div>
+        </div>
+    </div>
+
+    <!-- WebGL GPU Shader 极光算法 -->
+    <script>
+        const starsContainer = document.getElementById('stars-container');
+        for (let i = 0; i < 150; i++) {
+            let star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = Math.random() * 2.5 + 'px';
+            star.style.height = star.style.width;
+            star.style.left = Math.random() * 100 + 'vw';
+            star.style.top = Math.random() * 100 + 'vh';
+            star.style.setProperty('--duration', (Math.random() * 4 + 2) + 's');
+            starsContainer.appendChild(star);
+        }
+
+        // --- 硬核部分：GPU 着色器 (GLSL) 算法模拟极光 ---
+        const container = document.getElementById('shader-container');
+        const scene = new THREE.Scene();
+        // 使用正交相机，像画布一样贴满全屏
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const uniforms = {
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+        };
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            transparent: true,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            // 核心碎片着色器：计算每一个像素的极光颜色、飘动与透明度
+            fragmentShader: `
+                uniform float u_time;
+                uniform vec2 u_resolution;
+                varying vec2 vUv;
+
+                // 2D 旋转矩阵计算
+                mat2 rot(float a) {
+                    float s = sin(a), c = cos(a);
+                    return mat2(c, -s, s, c);
+                }
+
+                // 伪随机哈希算法
+                float hash(vec2 p) {
+                    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+                }
+
+                // 柏林噪声算法 (模拟自然界的无序感)
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                               mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+                }
+
+                // 分形布朗运动 (FBM) - 叠加多层噪声产生细节复杂的云雾感
+                float fbm(vec2 p) {
+                    float f = 0.0;
+                    float amp = 0.5;
+                    for(int i = 0; i < 4; i++) {
+                        f += amp * noise(p);
+                        p *= 2.0;
+                        p *= rot(0.5); // 旋转以打破晶格感
+                        amp *= 0.5;
+                    }
+                    return f;
+                }
+
+                void main() {
+                    vec2 uv = vUv;
+                    vec3 auroraCol = vec3(0.0);
+                    
+                    // 叠加 3 层不同深度和颜色的极光光带
+                    for(float i = 0.0; i < 3.0; i++) {
+                        float t = u_time * 0.3 + i * 15.0; // 每层时间流速和偏移不同
+                        vec2 p = uv * vec2(3.0, 1.0) + vec2(t * 0.1, 0.0);
+                        
+                        // 用 FBM 扭曲空间，产生波浪感
+                        p.y += fbm(p + t * 0.2) * 0.5;
+                        
+                        // 生成垂直播放的流光拉丝 (极光典型的光柱特征)
+                        float streak = noise(vec2(p.x * 15.0, t * 1.5));
+                        streak = pow(streak, 2.5); // 强化对比度，让光柱更锐利
+                        
+                        // 上下边缘羽化淡出
+                        float fade = smoothstep(0.1, 0.6, uv.y) * smoothstep(1.0, 0.4, uv.y);
+                        
+                        // 综合计算当前像素的光强
+                        float intensity = streak * fade * fbm(p * 0.8) * 1.5;
+                        
+                        // 色彩映射：根据高度和层级在 祖母绿 和 紫罗兰 之间渐变
+                        vec3 layerCol = mix(vec3(0.1, 0.9, 0.5), vec3(0.6, 0.2, 0.9), uv.y + i * 0.3);
+                        
+                        // 混合叠加
+                        auroraCol += layerCol * intensity;
+                    }
+                    
+                    // 最终输出：像素颜色与动态计算出的发光透明度
+                    gl_FragColor = vec4(auroraCol * 1.5, length(auroraCol));
+                }
+            `
+        });
+
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+        scene.add(plane);
+
+        function animateShader() {
+            requestAnimationFrame(animateShader);
+            uniforms.u_time.value += 0.01;
+            renderer.render(scene, camera);
+        }
+        animateShader(); // 启动 GPU 运算
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+
+        // ----------------- 剧情与收集逻辑 -----------------
+        let collectedCount = 0;
+        const skyBlue = document.getElementById('sky-blue');
+        const skyNight = document.getElementById('sky-night');
+        const hintText = document.getElementById('hint-text');
+        const shaderContainer = document.getElementById('shader-container');
+
+        function collectClover(element) {
+            if (element.classList.contains('collected')) return;
+
+            element.classList.add('collected');
+            collectedCount++;
+
+            setTimeout(() => {
+                const slot = document.getElementById(`slot-${collectedCount}`);
+                slot.classList.remove('empty');
+                slot.classList.add('pop');
+            }, 300); 
+
+            if (collectedCount === 1) {
+                skyBlue.style.opacity = '1';
+                starsContainer.style.opacity = '0.4';
+                hintText.innerText = "星光初现，好运正在靠近...";
+            } 
+            else if (collectedCount === 2) {
+                skyNight.style.opacity = '1';
+                starsContainer.style.opacity = '1';
+                hintText.innerText = "还差最后一片幸运...";
+                document.querySelector('.shooting-star').classList.add('active');
+            }
+            else if (collectedCount === 3) {
+                hintText.style.opacity = '0'; 
+                document.getElementById('center-clovers').style.opacity = '0'; 
+                
+                // ！！！触发纯代码 GPU 极光！！！
+                shaderContainer.style.opacity = '1';
+
+                const meteors = document.querySelectorAll('#meteor-shower .shooting-star');
+                meteors.forEach(meteor => meteor.classList.add('active'));
+
+                setTimeout(() => {
+                    const bottomUI = document.querySelector('.bottom-ui');
+                    bottomUI.style.transition = 'opacity 1.5s ease, transform 1.5s ease';
+                    bottomUI.style.opacity = '0';
+                    bottomUI.style.transform = 'translateY(50px)';
+                }, 1500);
+
+                setTimeout(() => {
+                    document.getElementById('climax-container').classList.add('show');
+                }, 3000);
+            }
+        }
+
+        function makeWish() {
+            const flameGroup = document.getElementById('flameGroup');
+            flameGroup.style.animation = "none";
+            flameGroup.style.transition = "opacity 0.3s ease";
+            flameGroup.style.opacity = "0";
+
+            const smoke = document.getElementById('smokeAnim');
+            smoke.classList.add('smoke-effect');
+
+            document.getElementById('wish-hint').style.opacity = "0";
+            setTimeout(() => { document.getElementById('wish-hint').style.display = "none"; }, 500);
+
+            setTimeout(() => {
+                const finalBlessing = document.getElementById('final-blessing');
+                finalBlessing.style.display = "block";
+                void finalBlessing.offsetWidth; 
+                finalBlessing.classList.add('show');
+            }, 1000);
+
+            const bgm = document.getElementById('bgm');
+            bgm.play().catch(e => console.log("等待接入真实的音乐链接"));
+            
+            document.querySelector('.cake-wrapper').style.cursor = "default";
+            document.querySelector('.cake-wrapper').onclick = null;
+        }
+    </script>
+</body>
+</html>
